@@ -1,0 +1,149 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: ai-orchestrator
+    url: http://ai-orchestrator:8000
+    routes:
+      - name: ai-query
+        paths:
+          - /api/v1/ai
+        strip_path: true
+        methods:
+          - POST
+          - GET
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              policy: redis
+              redis_host: redis-cluster
+          - name: jwt
+            config:
+              uri_param_names: []
+              cookie_names: []
+              key_claim_name: iss
+              secret_is_base64: false
+              claims_to_verify:
+                - exp
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-Request-ID:$(request_id)
+          - name: prometheus
+
+  - name: rag-service
+    url: http://rag-service:8000
+    routes:
+      - name: rag-retrieve
+        paths:
+          - /api/v1/rag
+        strip_path: true
+        methods:
+          - POST
+          - GET
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 120
+              policy: redis
+              redis_host: redis-cluster
+          - name: jwt
+
+  - name: ledger-processor
+    url: http://ledger-processor:8080
+    routes:
+      - name: ledger-api
+        paths:
+          - /api/v1/ledger
+        strip_path: true
+        methods:
+          - POST
+          - GET
+          - PUT
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 300
+              policy: redis
+              redis_host: redis-cluster
+          - name: jwt
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - X-Request-ID:$(request_id)
+
+  - name: ocr-pipeline
+    url: http://ocr-pipeline:8000
+    routes:
+      - name: ocr-process
+        paths:
+          - /api/v1/ocr
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: redis
+              redis_host: redis-cluster
+          - name: jwt
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 50  # MB
+
+  - name: guardrails-service
+    url: http://guardrails-service:8000
+    routes:
+      - name: guardrails-check
+        paths:
+          - /api/v1/guardrails
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 200
+
+consumers:
+  - username: accounting-platform-client
+    jwt_secrets:
+      - algorithm: RS256
+        key: "accounting-platform"
+        # Public key for JWT verification (use Vault in production)
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "https://accounting-platform.in"
+        - "https://app.accounting-platform.in"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+      max_age: 3600
+      credentials: true
+
+  - name: bot-detection
+    config:
+      denylist:
+        - "GPTBot"
+        - "ChatGPT-User"
+      allowlist:
+        - "Googlebot"
+
+  - name: ip-restriction
+    config:
+      denylist:
+        - "10.0.0.0/8"  # Example: deny internal IPs from external gateway
