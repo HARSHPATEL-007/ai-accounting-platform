@@ -1,0 +1,67 @@
+name: accounting_platform_mobile
+description: AI-Native Accounting Platform Mobile App for MSMEs
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  camera: ^0.10.5+9
+  image_picker: ^1.0.7
+  http: ^1.2.0
+  dio: ^5.4.0
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.2
+  path_provider: ^2.1.2
+  connectivity_plus: ^5.0.2
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
+  json_annotation: ^4.8.1
+  freezed_annotation: ^2.4.1
+  intl: ^0.19.0
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.2
+  permission_handler: ^11.3.0
+  local_auth: ^2.2.0
+  biometric_storage: ^5.0.1
+  flutter_secure_storage: ^9.0.0
+  qr_code_scanner: ^1.0.1
+  file_picker: ^6.1.1
+  open_filex: ^4.3.4
+  share_plus: ^7.2.2
+  path: ^1.9.0
+  uuid: ^4.3.3
+  logger: ^2.0.2
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.19
+  firebase_crashlytics: ^3.4.18
+  google_mlkit_text_recognition: ^0.13.0
+  google_mlkit_document_scanner: ^0.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.8
+  freezed: ^2.4.7
+  json_serializable: ^6.7.1
+  mockito: ^5.4.4
+  bloc_test: ^9.1.7
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
