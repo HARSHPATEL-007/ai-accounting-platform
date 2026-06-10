@@ -1,0 +1,119 @@
+{
+  "dashboard": {
+    "title": "AI Orchestrator Metrics",
+    "tags": ["ai", "accounting", "langgraph"],
+    "timezone": "Asia/Kolkata",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate (RPM)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ai_orchestrator_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Latency (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(ai_orchestrator_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Agent Routing Decisions",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum by (intent) (rate(agent_routing_total[5m]))",
+            "legendFormat": "{{intent}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Token Cost per Client (INR)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "token_cost_per_client / 100",
+            "legendFormat": "{{client_id}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "RAG Retrieval Latency (p95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(rag_retrieval_duration_seconds_bucket[5m]))",
+            "legendFormat": "hybrid_search"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Hallucination Detection Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(guardrails_blocked_total{layer='hallucination'}[5m]) / rate(guardrails_check_total[5m]) * 100",
+            "legendFormat": "Hallucination %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "First-Pass Acceptance Rate",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "rate(ai_accepted_total[5m]) / rate(ai_generated_total[5m]) * 100",
+            "legendFormat": "FPA Rate"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 8,
+        "title": "STP Success Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(workflow_completed_total{status='success'}[5m]) / rate(workflow_started_total[5m]) * 100",
+            "legendFormat": "STP Success %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "Human-in-the-Loop Queue",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "human_review_queue_length",
+            "legendFormat": "Pending Reviews"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "refresh": "30s"
+  }
+}
