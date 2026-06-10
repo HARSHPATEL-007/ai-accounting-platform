@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'ai-orchestrator'
+    static_configs:
+      - targets: ['ai-orchestrator:8000']
+    metrics_path: /metrics
+
+  - job_name: 'rag-service'
+    static_configs:
+      - targets: ['rag-service:8000']
+    metrics_path: /metrics
+
+  - job_name: 'ledger-processor'
+    static_configs:
+      - targets: ['ledger-processor:8080']
+    metrics_path: /metrics
+
+  - job_name: 'ocr-pipeline'
+    static_configs:
+      - targets: ['ocr-pipeline:8000']
+    metrics_path: /metrics
+
+  - job_name: 'guardrails-service'
+    static_configs:
+      - targets: ['guardrails-service:8000']
+    metrics_path: /metrics
+
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8001']
+    metrics_path: /metrics
+
+  - job_name: 'temporal'
+    static_configs:
+      - targets: ['temporal:7233']

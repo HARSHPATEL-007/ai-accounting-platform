@@ -1,0 +1,225 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: accounting
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: accounting
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../postgres/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounting"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accounting-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - accounting-network
+
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - accounting-network
+
+  temporal:
+    image: temporalio/auto-setup:1.22.0
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=accounting
+      - POSTGRES_PWD=${DB_PASSWORD:-changeme}
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - accounting-network
+
+  temporal-ui:
+    image: temporalio/ui:2.22.0
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8088:8080"
+    depends_on:
+      - temporal
+    networks:
+      - accounting-network
+
+  api-gateway:
+    image: kong:3.6
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PLUGINS: bundled,rate-limiting,jwt,prometheus
+    volumes:
+      - ../../api-gateway/kong.yml:/kong/declarative/kong.yml:ro
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+      - "8444:8444"
+    networks:
+      - accounting-network
+
+  ai-orchestrator:
+    build:
+      context: ../../ai-orchestrator
+      dockerfile: Dockerfile
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - RAG_SERVICE_URL=http://rag-service:8000
+      - VALUATION_ENGINE_URL=http://valuation-engine:8000
+      - GUARDRAILS_SERVICE_URL=http://guardrails-service:8000
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8001:8000"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - accounting-network
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  rag-service:
+    build:
+      context: ../../rag-service
+      dockerfile: Dockerfile
+    environment:
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - POSTGRES_URL=postgresql://accounting:${DB_PASSWORD}@postgres:5432/accounting
+    ports:
+      - "8002:8000"
+    depends_on:
+      - elasticsearch
+      - postgres
+    networks:
+      - accounting-network
+
+  ledger-processor:
+    build:
+      context: ../../ledger-processor
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://accounting:${DB_PASSWORD}@postgres:5432/accounting
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - accounting-network
+    deploy:
+      replicas: 3
+
+  ocr-pipeline:
+    build:
+      context: ../../ocr-pipeline
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=ap-south-1
+      - S3_BUCKET=accounting-docs-dev
+    ports:
+      - "8003:8000"
+    networks:
+      - accounting-network
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+
+  guardrails-service:
+    build:
+      context: ../../guardrails-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    networks:
+      - accounting-network
+
+  workflow-worker:
+    build:
+      context: ../../workflow-engine
+      dockerfile: Dockerfile
+    environment:
+      - TEMPORAL_HOST=temporal:7233
+      - OCR_PIPELINE_URL=http://ocr-pipeline:8000
+      - LEDGER_PROCESSOR_URL=http://ledger-processor:8080
+    depends_on:
+      - temporal
+    networks:
+      - accounting-network
+    deploy:
+      replicas: 2
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - accounting-network
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - accounting-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  accounting-network:
+    driver: bridge

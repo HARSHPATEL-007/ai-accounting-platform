@@ -1,0 +1,59 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: accounting-platform
+
+resources:
+  - ../../base/namespace.yaml
+  - ../../base/configmap.yaml
+  - ../../base/ai-orchestrator.yaml
+  - ../../base/ledger-processor.yaml
+  - ../../base/postgres.yaml
+  - ../../base/network-policy.yaml
+
+namePrefix: prod-
+
+replicas:
+  - name: ai-orchestrator
+    count: 5
+  - name: ledger-processor
+    count: 10
+
+images:
+  - name: accounting-registry/ai-orchestrator
+    newTag: v1.0.0
+  - name: accounting-registry/ledger-processor
+    newTag: v1.0.0
+
+patches:
+  - target:
+      kind: Deployment
+      name: ai-orchestrator
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: "production"
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: ai-orchestrator-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 5
+      - op: replace
+        path: /spec/maxReplicas
+        value: 50
+
+configMapGenerator:
+  - name: accounting-platform-config
+    behavior: merge
+    literals:
+      - APP_ENV=production
+      - LOG_LEVEL=info
+      - RAG_SERVICE_URL=http://rag-service-prod:8000
