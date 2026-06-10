@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  litellm:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - DATABASE_URL=postgresql://accounting:${DB_PASSWORD}@postgres:5432/litellm
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - accounting-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    networks:
+      - accounting-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: litellm
+    volumes:
+      - litellm_data:/var/lib/postgresql/data
+    networks:
+      - accounting-network
+
+volumes:
+  litellm_data:
+
+networks:
+  accounting-network:
+    external: true
